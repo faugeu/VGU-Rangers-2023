@@ -20,7 +20,11 @@ parser.add_argument("-m", "--model", help="Provide model name or model path for 
                     default='yolov4_tiny_coco_416x416', type=str)
 parser.add_argument("-c", "--config", help="Provide config path for inference",
                     default='json/yolov4-tiny.json', type=str)
+parser.add_argument("-r", "--record", help="Record the video during running model. Provide video name with .avi format", type=str, default='')
 args = parser.parse_args()
+
+if args.record != '':
+    assert args.record.endswith('.avi'), 'Incorrect video format.'
 
 # parse config
 configPath = Path(args.config)
@@ -113,7 +117,7 @@ with dai.Device(pipeline) as device:
         normVals[::2] = frame.shape[1]
         return (np.clip(np.array(bbox), 0, 1) * normVals).astype(int)
 
-    def displayFrame(name, frame, detections):
+    def displayFrame(name, frame, detections, video):
         color = (255, 0, 0)
         count = 0
         for detection in detections:
@@ -122,8 +126,16 @@ with dai.Device(pipeline) as device:
             cv2.putText(frame, labels[detection.label], (bbox[0] + 10, bbox[1] + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
             cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
             cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
+        
+        if video:
+            video.write(frame)
+
         # Show the frame
         cv2.imshow(name, frame)
+
+    video = False
+    if args.record:
+        video = cv2.VideoWriter(args.record, cv2.VideoWriter_fourcc(*'MJPG'), 10, (640,640))
 
     while True:
         inRgb = qRgb.get()
@@ -139,7 +151,7 @@ with dai.Device(pipeline) as device:
             counter += 1
 
         if frame is not None:
-            displayFrame("rgb", frame, detections)
+            displayFrame("rgb", frame, detections, video)
 
         if cv2.waitKey(1) == ord('q'):
             break
